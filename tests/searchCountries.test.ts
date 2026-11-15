@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import spainResponse from './fixtures/spain.json';
 import { HttpError } from '../src/httpError.js';
 import { searchCountries } from '../src/searchCountries.js';
+import { classifyError } from '../src/classifyError.js';
 
 const signal = new AbortController().signal;
 
@@ -146,6 +147,41 @@ describe('searchCountries', () => {
       await expect(searchCountries('spain', controller.signal)).rejects.toMatchObject({
         name: 'AbortError',
       });
+    });
+  });
+  describe('timeout', () => {
+    it('rejects with TimeoutError when the server does not respond in time', async () => {
+      mockAbortableFetch();
+
+      await expect(searchCountries('spain', signal, 10)).rejects.toMatchObject({
+        name: 'TimeoutError',
+      });
+    }, 500);
+
+    it('is classified as a timeout, not as a cancellation', async () => {
+      mockAbortableFetch();
+
+      const error = await searchCountries('spain', signal, 10).catch((e: unknown) => e);
+
+      expect(classifyError(error)).toBe('timeout');
+    }, 500);
+
+    it('keeps reporting AbortError for its own cancellation when a timeout is set', async () => {
+      mockAbortableFetch();
+      const controller = new AbortController();
+
+      const promise = searchCountries('spain', controller.signal, 1000);
+      controller.abort();
+
+      await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('does not time out when the response arrives in time', async () => {
+      mockFetch(jsonResponse(spainResponse));
+
+      const countries = await searchCountries('spain', signal, 1000);
+
+      expect(countries).toHaveLength(1);
     });
   });
 });
