@@ -1,0 +1,7 @@
+[build]
+command = "npm run build && mkdir -p site && cp -r index.html styles.css dist site/"
+publish = "site"
+
+[build.environment]
+NODE_VERSION = "22"
+HUSKY = "0"
